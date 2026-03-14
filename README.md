@@ -1,23 +1,24 @@
 # 🔍 HireSense v2 — Agentic Resume Search Engine
 
-> A production-grade RAG system with an **agentic query planner**, **FastAPI REST layer**, **LangSmith observability**, and **RAGAS evaluation** — deployable to HuggingFace Spaces in one command.
+> A production-grade RAG system that finds the best-matching resumes for any hiring query — powered by open-source LLMs, semantic vector search, and a clean REST API.
 
-[![HuggingFace Spaces](https://img.shields.io/badge/HuggingFace-Spaces-yellow?logo=huggingface)](https://huggingface.co/spaces)
-[![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-009688?logo=fastapi)](http://localhost:8000/docs)
-[![LangSmith](https://img.shields.io/badge/LangSmith-traced-brightgreen?logo=langchain)](https://smith.langchain.com)
-[![RAGAS](https://img.shields.io/badge/RAGAS-evaluated-blue)](https://docs.ragas.io)
+[![HuggingFace](https://img.shields.io/badge/LLM-Llama--3.1--8B-yellow?logo=huggingface)](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi)](http://localhost:8000/docs)
+[![LangSmith](https://img.shields.io/badge/Tracing-LangSmith-brightgreen?logo=langchain)](https://smith.langchain.com)
+[![Pinecone](https://img.shields.io/badge/VectorDB-Pinecone-blue)](https://pinecone.io)
 
 ---
 
-## What's new in v2
+## What is HireSense?
 
-| Feature | v1 | v2 |
-|---------|----|----|
-| Query planning | Hardcoded category classifier | **Agentic planner** (4 tools, LLM decides strategy) |
-| API | Streamlit only | **FastAPI** `/search` + `/ask` endpoints |
-| Observability | UI trace only | **LangSmith** full prompt/response/latency tracing |
-| Evaluation | None | **RAGAS** (faithfulness, relevancy, precision, recall) |
-| Deployment | Local only | **HuggingFace Spaces** + Docker |
+HireSense is a retrieval-augmented generation (RAG) system built for resume search. You type a natural language hiring query, and it:
+
+1. Classifies the query into a job domain using an LLM
+2. Converts the query into a semantic vector locally (no API cost)
+3. Searches a Pinecone vector database filtered by that domain
+4. Returns the top 5 matching resumes with an LLM-generated answer
+
+Everything is observable — every LLM call is traced end-to-end via LangSmith.
 
 ---
 
@@ -28,30 +29,30 @@ User query
     │
     ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Agent (Llama-3.1-8B-Instruct via HuggingFace API)      │
-│  Reasons about the query and picks one of 4 tools:      │
-│    • category_search   → single-category vector search  │
-│    • multi_category    → 2-3 related categories         │
-│    • keyword_filter    → category + skill keywords      │
-│    • broad_search      → no filter, full index          │
+│  Category Classifier                                    │
+│  Llama-3.1-8B-Instruct via HuggingFace Inference API   │
+│  → classifies query into one of 24 job categories      │
 └────────────────────────┬────────────────────────────────┘
-                         │ tool + params
+                         │
                          ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Embedding  (sentence-transformers/all-MiniLM-L6-v2)    │
-│  Local, free, 384-dim cosine                            │
+│  Query Embedding                                        │
+│  sentence-transformers/all-MiniLM-L6-v2 (local, free)  │
+│  → 384-dimensional cosine vector                       │
 └────────────────────────┬────────────────────────────────┘
-                         │ vector
+                         │
                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │  Pinecone Vector Search                                 │
-│  Metadata filter from agent plan · top-k results       │
+│  Metadata filter: { category: <predicted> }            │
+│  → top-5 most similar resumes                          │
 └────────────────────────┬────────────────────────────────┘
-                         │ docs
+                         │
                          ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Answer Generation  (Llama-3.1-8B-Instruct)            │
-│  @traceable → LangSmith logs every call                 │
+│  Answer Generation                                      │
+│  Llama-3.1-8B-Instruct via HuggingFace Inference API   │
+│  @traceable → every call logged to LangSmith           │
 └────────────────────────┬────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
@@ -66,14 +67,14 @@ User query
 
 | Component | Technology |
 |-----------|-----------|
-| **Agent / LLM** | `meta-llama/Llama-3.1-8B-Instruct` via HuggingFace Inference API |
-| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` (local, free) |
-| **Vector DB** | Pinecone (serverless) |
-| **API** | FastAPI + Uvicorn |
+| **LLM** | `meta-llama/Llama-3.1-8B-Instruct` via HuggingFace Inference API |
+| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` — local, free, no API cost |
+| **Vector DB** | Pinecone serverless (cosine similarity, 384-dim) |
+| **REST API** | FastAPI + Uvicorn |
 | **UI** | Streamlit |
-| **Observability** | LangSmith |
-| **Evaluation** | RAGAS |
-| **Deployment** | HuggingFace Spaces + Docker |
+| **Observability** | LangSmith — full prompt, response, and latency tracing |
+
+> No OpenAI key required. Only paid service is Pinecone (free tier is sufficient).
 
 ---
 
@@ -82,8 +83,16 @@ User query
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/HireSense
+git clone https://github.com/Nakuly03/HireSense
 cd HireSense
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Mac/Linux
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
@@ -91,14 +100,17 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Fill in: HF_API_TOKEN, PINECONE_API_KEY
-# Optional: LANGSMITH_API_KEY (for tracing)
+# Fill in HF_API_TOKEN and PINECONE_API_KEY
+# LANGSMITH_API_KEY is optional
 ```
 
-Get keys:
-- HuggingFace token → https://huggingface.co/settings/tokens *(request Llama access first)*
-- Pinecone key → https://app.pinecone.io *(free tier is enough)*
-- LangSmith key → https://smith.langchain.com *(free tier)*
+| Key | Where to get it |
+|-----|----------------|
+| `HF_API_TOKEN` | https://huggingface.co/settings/tokens |
+| `PINECONE_API_KEY` | https://app.pinecone.io |
+| `LANGSMITH_API_KEY` | https://smith.langchain.com (optional) |
+
+> **Note:** Llama-3.1-8B-Instruct is a gated model. Request access at https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct before running.
 
 ### 3. Upsert resume data (one-time)
 
@@ -106,116 +118,65 @@ Get keys:
 python scripts/upsert_resumes.py --csv Resume/Resume_cleaned.csv
 ```
 
-### 4. Run Streamlit UI
+This embeds all resumes locally and uploads them to Pinecone with category metadata.
+
+### 4. Run the Streamlit UI
 
 ```bash
 streamlit run app.py
 ```
 
-### 5. Run REST API
+### 5. Run the REST API
 
 ```bash
 uvicorn api:app --reload
-# Docs at: http://localhost:8000/docs
-```
-
-### 6. Run RAGAS evaluation
-
-```bash
-python scripts/evaluate.py
-# Results saved to eval_results.json
+# Swagger docs at: http://localhost:8000/docs
 ```
 
 ---
 
-## API Reference
+## API Endpoints
 
-### `POST /search`
-Retrieve top-k resumes. The agent decides the retrieval strategy.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Liveness check |
+| `GET` | `/categories` | List all 24 supported categories |
+| `POST` | `/search` | Retrieve top-k matching resumes |
+| `POST` | `/ask` | Retrieve resumes + generate answer |
 
-```bash
-curl -X POST http://localhost:8000/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Senior Python engineer with AWS", "top_k": 5}'
-```
-
-```json
-{
-  "query": "Senior Python engineer with AWS",
-  "tool_used": "keyword_filter",
-  "reasoning": "Query contains specific technologies; using keyword filter on INFORMATION-TECHNOLOGY",
-  "docs": [{"id": "row_42", "score": 0.891, "text": "..."}],
-  "trace": [...]
-}
-```
-
-### `POST /ask`
-Retrieve resumes AND generate a plain-English answer.
+### Example — `/ask`
 
 ```bash
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
-  -d '{"query": "Find a healthcare professional with ICU experience"}'
+  -d '{"query": "Senior Python engineer with AWS experience", "top_k": 5}'
 ```
 
-### `GET /health`
-Liveness check.
+```json
+{
+  "query": "Senior Python engineer with AWS experience",
+  "category": "INFORMATION-TECHNOLOGY",
+  "answer": "Based on the retrieved resumes, row_142 is a strong match...",
+  "docs": [
+    {"id": "row_142", "score": 0.891, "text": "..."},
+    {"id": "row_89",  "score": 0.873, "text": "..."}
+  ]
+}
+```
 
-### `GET /categories`
-List all 24 supported resume categories.
-
-Interactive docs at **http://localhost:8000/docs** (Swagger UI).
+Interactive docs available at **http://localhost:8000/docs**
 
 ---
 
-## Deploy to HuggingFace Spaces
+## Supported Categories
 
-```bash
-# 1. Create a new Space at huggingface.co/new-space
-#    SDK: Streamlit, Hardware: CPU Basic (free)
-
-# 2. Add secrets in Space Settings:
-#    HF_API_TOKEN, PINECONE_API_KEY, LANGSMITH_API_KEY (optional)
-
-# 3. Push the repo
-git remote add space https://huggingface.co/spaces/YOUR_USERNAME/HireSense
-git push space main
 ```
-
-The `Dockerfile` is also included for container-based deployments (Railway, Render, etc.).
-
----
-
-## Evaluation (RAGAS)
-
-Run the evaluation suite to measure RAG quality:
-
-```bash
-python scripts/evaluate.py
+HR · DESIGNER · INFORMATION-TECHNOLOGY · TEACHER · ADVOCATE
+BUSINESS-DEVELOPMENT · HEALTHCARE · FITNESS · AGRICULTURE · BPO
+SALES · CONSULTANT · DIGITAL-MEDIA · AUTOMOBILE · CHEF · FINANCE
+APPAREL · ENGINEERING · ACCOUNTANT · CONSTRUCTION · PUBLIC-RELATIONS
+BANKING · ARTS · AVIATION
 ```
-
-Example output:
-```
-RAGAS Evaluation Results
-────────────────────────────────────────
-  faithfulness         0.87  █████████████████
-  answer_relevancy     0.91  ██████████████████
-  context_precision    0.78  ███████████████
-  context_recall       0.83  ████████████████
-```
-
-Use `--questions my_questions.json` to evaluate against your own question set.
-
----
-
-## Observability (LangSmith)
-
-With `LANGSMITH_API_KEY` set, every `generate_answer()` call is automatically traced:
-- Full prompt and response text
-- Token usage and latency
-- Run metadata and tags
-
-View traces at https://smith.langchain.com → project `hiresense`.
 
 ---
 
@@ -227,18 +188,53 @@ HireSense/
 ├── api.py                     # FastAPI REST API
 ├── Dockerfile                 # Container deployment
 ├── requirements.txt
-├── .env.example
+├── .env.example               # Environment variable template
 ├── scripts/
-│   ├── upsert_resumes.py      # Embed + upsert CSV to Pinecone
-│   └── evaluate.py            # RAGAS evaluation suite
-├── src/
-│   ├── config.py              # All config + env vars
-│   ├── agent.py               # Agentic query planner (4 tools)
-│   ├── embed.py               # sentence-transformers helpers
-│   ├── pinecone_client.py     # Pinecone index management
-│   ├── tools.py               # Legacy category classifier (kept for reference)
-│   ├── llm.py                 # LLM answer generation + LangSmith @traceable
-│   └── query_pipeline.py      # Full RAG orchestration
-└── Resume/
-    └── Resume_cleaned.csv
+│   └── upsert_resumes.py      # Embed + upsert CSV to Pinecone
+└── src/
+    ├── __init__.py
+    ├── config.py              # All config and env vars
+    ├── embed.py               # sentence-transformers helpers
+    ├── pinecone_client.py     # Pinecone index management
+    ├── tools.py               # Category classifier
+    ├── llm.py                 # Answer generation + LangSmith tracing
+    └── query_pipeline.py      # Full RAG orchestration
 ```
+
+---
+
+## Observability
+
+With `LANGSMITH_API_KEY` set in `.env`, every LLM call is automatically traced:
+- Full prompt and response
+- Token usage and latency
+- Run metadata
+
+View traces at https://smith.langchain.com → project `hiresense`.
+
+---
+
+## Deploy to HuggingFace Spaces
+
+```bash
+# 1. Create a new Space at huggingface.co/new-space
+#    SDK: Streamlit | Hardware: CPU Basic (free)
+
+# 2. Add secrets in Space Settings:
+#    HF_API_TOKEN, PINECONE_API_KEY, LANGSMITH_API_KEY
+
+# 3. Push
+git remote add space https://huggingface.co/spaces/YOUR_USERNAME/HireSense
+git push space main
+```
+
+---
+
+## About
+
+Built as a portfolio project demonstrating production RAG patterns:
+- Open-source LLMs (no OpenAI dependency)
+- Local embeddings (zero embedding cost)
+- Vector search with metadata filtering
+- REST API layer on top of the pipeline
+- Full LLM observability with LangSmith
