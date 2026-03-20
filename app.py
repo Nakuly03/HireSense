@@ -9,7 +9,7 @@ from src.query_pipeline import answer, retrieve
 
 st.set_page_config(page_title="HireSense", layout="wide")
 
-st.title("🔍 HireSense v2")
+st.title("HireSense v2")
 st.caption(
     "**Resume Search Engine** · "
     "Llama-3.1-8B-Instruct (HuggingFace) · "
