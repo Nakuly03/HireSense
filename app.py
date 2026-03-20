@@ -7,7 +7,7 @@ import streamlit as st
 from src.config import CATEGORIES, LANGSMITH_API_KEY, LANGSMITH_PROJECT
 from src.query_pipeline import answer, retrieve
 
-st.set_page_config(page_title="HireSense", page_icon="🔍", layout="wide")
+st.set_page_config(page_title="HireSense", layout="wide")
 
 st.title("🔍 HireSense v2")
 st.caption(
